@@ -33,7 +33,26 @@ def bg(stars=0.0, seed=4):
     arr = np.zeros((H, W, 3), np.float32)
     for i in range(3): arr[..., i] = PAPER[i] + (n - 128) * 0.10
     t = np.linspace(0, 1, H, dtype=np.float32)[:, None]; arr[..., 0] += t * 4; arr[..., 2] -= t * 6
-    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+    return constellations(img, ZOD_SPOTS)
+
+ZOD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "content")
+ZOD_SPOTS = [(5, 70, 1120, 1.25, 0.7), (3, 760, 1150, 1.2, 0.7)]   # 下の空きに2つ（本文の邪魔をしない）
+def zodiac_layer(n, color=(196, 160, 80), alpha=0.7, scale=1.3):
+    """星座線画（content/zodiac_NN.png）を薄い金で"""
+    pth = os.path.join(ZOD_DIR, f"zodiac_{n:02d}.png")
+    if not os.path.exists(pth): return None
+    m = Image.open(pth).convert("L")
+    m = m.resize((max(1, int(m.width * scale)), max(1, int(m.height * scale))), Image.LANCZOS)
+    lay = Image.new("RGBA", m.size, color + (255,)); lay.putalpha(m.point(lambda a: int(a * alpha)))
+    return lay
+
+def constellations(img, spots):
+    base = img.convert("RGBA")
+    for n, x, y, sc, al in spots:
+        lay = zodiac_layer(n, alpha=al, scale=sc)
+        if lay is not None: base.alpha_composite(lay, (int(x), int(y)))
+    return base.convert("RGB")
 
 def hairline_frame(img):
     d = ImageDraw.Draw(img)

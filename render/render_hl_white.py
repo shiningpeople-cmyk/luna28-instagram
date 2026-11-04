@@ -63,18 +63,53 @@ def rule(d, cx, y, half=200):
     d.line([(cx - half, y), (cx + half, y)], fill=GOLD, width=1); L.diamond(d, cx, y, 7, GOLD)
 
 # ---------------------------------------------------------------- カバー（丸く切り抜かれる：中央700pxに収める）
+EMBLEM = os.path.join(ROOT, "content", "sunmoon_emblem.png")
+def emblem_layer(size, alpha=0.55, color=(190, 150, 70)):
+    """「太陽と月の円」を金の線画に（濃い円盤は落とし、輪・星座・太陽・月・星だけ）"""
+    em = Image.open(EMBLEM).convert("RGBA")
+    em = em.resize((size, int(em.height * size / em.width)), Image.LANCZOS)
+    a = np.asarray(em).astype(np.float32)
+    lum = a[..., :3].mean(axis=2); al = a[..., 3] / 255
+    bright = np.clip((lum - 60) / 120, 0, 1) * al
+    lay = Image.new("RGBA", em.size, color + (255,)); lay.putalpha(Image.fromarray((bright * 255 * alpha).astype(np.uint8)))
+    return lay
+
+def zodiac_layer(n, color=(196, 160, 80), alpha=0.8, scale=1.9):
+    m = Image.open(os.path.join(ROOT, "content", f"zodiac_{n:02d}.png")).convert("L")
+    m = m.resize((max(1, int(m.width * scale)), max(1, int(m.height * scale))), Image.LANCZOS)
+    lay = Image.new("RGBA", m.size, color + (255,)); lay.putalpha(m.point(lambda a: int(a * alpha)))
+    return lay
+
+def constellations(img, spots):
+    """spots: [(星座番号, x, y, scale, alpha), ...] 薄い金の線画を散らす"""
+    base = img.convert("RGBA")
+    for n, x, y, sc, al in spots:
+        base.alpha_composite(zodiac_layer(n, alpha=al, scale=sc), (int(x), int(y)))
+    return base.convert("RGB")
+
+STORY_SPOTS = [(5, 80, 140, 1.9, 0.85), (10, 600, 230, 1.9, 0.8), (12, 70, 1380, 1.9, 0.8), (3, 660, 1470, 1.9, 0.85)]
+
+# ---------------------------------------------------------------- カバー（Instagramで丸く切り抜かれる：中央の直径1080の円に収める）
 def hl_cover(label):
-    img = paper(seed=7); img = moon(img, 260, SW / 2, SH / 2 - 200)
+    """太陽と月の円（星座の輪）を中央に大きく。輪は切り抜き円のすぐ外側に置き、二重丸に見えないようにする"""
+    img = paper(seed=7)
+    cx, cy = SW / 2, SH / 2
+    em = emblem_layer(1340, alpha=0.65)
+    # 外側の輪は切り抜き円（直径1080）の外に出し、円の外側は消す（カバーとして丸く切られたとき二重丸にならない）
+    cut = Image.new("L", em.size, 0); r = 522
+    ImageDraw.Draw(cut).ellipse([em.width / 2 - r, em.height / 2 - r, em.width / 2 + r, em.height / 2 + r], fill=255)
+    cut = cut.filter(ImageFilter.GaussianBlur(6))
+    em.putalpha(Image.fromarray((np.asarray(em.split()[3], np.float32) * np.asarray(cut, np.float32) / 255).astype(np.uint8)))
+    base = img.convert("RGBA"); base.alpha_composite(em, (int(cx - em.width / 2), int(cy - em.height / 2))); img = base.convert("RGB")
     d = ImageDraw.Draw(img)
-    d.ellipse([SW / 2 - 400, SH / 2 - 400, SW / 2 + 400, SH / 2 + 400], outline=GOLD, width=3)
-    d.ellipse([SW / 2 - 386, SH / 2 - 386, SW / 2 + 386, SH / 2 + 386], outline=LINE, width=1)
-    ctext(d, label, SW / 2, SH / 2 + 10, f(L.SERIF, 76 if len(label) <= 5 else 62), INK)
-    rule(d, SW / 2, SH / 2 + 130, 120)
+    fs = 96 if len(label) <= 4 else (84 if len(label) <= 5 else 68)
+    ctext(d, label, cx, cy - fs * 0.55, f(L.SERIF, fs), INK)
+    rule(d, cx, cy + fs * 0.75, 130)
     return img
 
 # ---------------------------------------------------------------- ストーリーズ
 def hl_story(title, lines, cta=None, moon_size=520, url=None):
-    img = paper(seed=9); img = moon(img, moon_size, SW / 2, 540); frame(img)
+    img = constellations(paper(seed=9), STORY_SPOTS); img = moon(img, moon_size, SW / 2, 540); frame(img)
     gold_c(img, title, SW / 2, 900, f(L.SERIF, 84 if len(title) <= 8 else (66 if len(title) <= 12 else 58))); d = ImageDraw.Draw(img)
     rule(d, SW / 2, 1040, 220)
     y = 1090
@@ -82,32 +117,28 @@ def hl_story(title, lines, cta=None, moon_size=520, url=None):
         for sub in V.wrap(ln, 18): ctext(d, sub, SW / 2, y, f(L.SERIFM, 44), INK); y += 76
         if not ln.endswith(("、", "を")): y += 24
     if cta: L.gold_pill(img, (SW / 2 - 360, 1560, SW / 2 + 360, 1670), cta, f(L.SANSB, 40))
-    if url: ctext(ImageDraw.Draw(img), url, SW / 2, 1712, f(L.SERIFM, 30), SOFT)
     return img
 
-def hl_story_book(url):
-    """書籍『新占星術ルナ28』"""
-    img = paper(seed=13); frame(img)
-    # 本のイラスト（金の背・紫の表紙）
-    d = ImageDraw.Draw(img)
-    bx, by, bw, bh = SW / 2 - 210, 260, 420, 560
-    sh = Image.new("RGBA", img.size, (0, 0, 0, 0)); ImageDraw.Draw(sh).rounded_rectangle([bx + 18, by + 30, bx + bw + 18, by + bh + 30], radius=12, fill=(120, 90, 140, 70))
-    img = Image.alpha_composite(img.convert("RGBA"), sh.filter(ImageFilter.GaussianBlur(18))).convert("RGB"); d = ImageDraw.Draw(img)
-    d.rounded_rectangle([bx, by, bx + bw, by + bh], radius=10, fill=(78, 48, 120))
-    d.rectangle([bx, by, bx + 26, by + bh], fill=GOLD)
-    d.rounded_rectangle([bx + 50, by + 40, bx + bw - 30, by + bh - 40], radius=8, outline=GOLD, width=2)
-    img = moon(img, 150, bx + bw / 2 + 12, by + 190, 0.95); d = ImageDraw.Draw(img)
-    ctext(d, "新占星術", bx + bw / 2 + 12, by + 300, f(L.SERIF, 44), (255, 244, 220))
-    ctext(d, "ルナ28", bx + bw / 2 + 12, by + 360, f(L.SERIF, 64), GOLD_L)
-    ctext(d, "一冊であなたも占い師", bx + bw / 2 + 12, by + 460, f(L.SERIFM, 26), (226, 212, 236))
-    gold_c(img, "書籍『新占星術ルナ28』", SW / 2, 920, f(L.SERIF, 66)); d = ImageDraw.Draw(img)
-    rule(d, SW / 2, 1040, 220)
-    y = 1090
-    for ln in ["LUNA28のもとになった一冊。", "27のルナの性格・相性・運勢を、", "自分で読み解けるようになります。", "", "Amazon・楽天ブックスで探せます。"]:
+BOOK_PHOTO = os.path.join(ROOT, "content", "book_photo.jpg")
+def hl_story_book(url=None):
+    """書籍『新占星術ルナ28』：content/book_photo.jpg（実物の写真）を中央に配置"""
+    img = constellations(paper(seed=13), [(5, 70, 300, 1.9, 0.85), (10, 760, 330, 1.7, 0.8), (12, 70, 1380, 1.9, 0.8), (3, 660, 1470, 1.9, 0.85)]); frame(img)
+    bh = 620
+    if os.path.exists(BOOK_PHOTO):
+        ph = Image.open(BOOK_PHOTO).convert("RGB")
+        ph = ph.resize((int(ph.width * bh / ph.height), bh), Image.LANCZOS)
+        bx, by = int(SW / 2 - ph.width / 2), 250
+        sh = Image.new("RGBA", img.size, (0, 0, 0, 0)); ImageDraw.Draw(sh).rectangle([bx + 16, by + 28, bx + ph.width + 16, by + bh + 28], fill=(120, 90, 140, 80))
+        img = Image.alpha_composite(img.convert("RGBA"), sh.filter(ImageFilter.GaussianBlur(18))).convert("RGB")
+        img.paste(ph, (bx, by))
+        ImageDraw.Draw(img).rectangle([bx - 1, by - 1, bx + ph.width, by + bh], outline=GOLD, width=2)
+    gold_c(img, "書籍『新占星術ルナ28』", SW / 2, 960, f(L.SERIF, 66)); d = ImageDraw.Draw(img)
+    rule(d, SW / 2, 1070, 220)
+    y = 1120
+    for ln in ["LUNA28のもとになった一冊。", "27のルナの性格・相性・運勢を、", "自分で読み解けるようになります。", "", "Amazonで探せます。"]:
         if ln: ctext(d, ln, SW / 2, y, f(L.SERIFM, 44), INK)
         y += 76
     L.gold_pill(img, (SW / 2 - 360, 1560, SW / 2 + 360, 1670), "書籍を見る ▶", f(L.SANSB, 40))
-    ctext(ImageDraw.Draw(img), url, SW / 2, 1712, f(L.SERIFM, 30), SOFT)
     return img
 
 CHARS = os.path.join(ROOT, "content", "chars")
@@ -124,22 +155,21 @@ def medallion(img, n, cx, cy, dia):
 
 def hl_story_find(url=None):
     """番号が出たら → 固定投稿で自分のルナを"""
-    img = paper(seed=12); frame(img)
+    img = constellations(paper(seed=12), [(5, 80, 120, 1.7, 0.85), (10, 640, 150, 1.7, 0.8), (12, 70, 1380, 1.9, 0.8), (3, 660, 1470, 1.9, 0.85)]); frame(img)
     for i, n in enumerate([1, 9, 15, 22, 28]):
         img = medallion(img, n, 170 + i * 185, 520, 160)
-    gold_c(img, "番号が出たら", SW / 2, 740, f(L.SERIF, 84)); d = ImageDraw.Draw(img)
+    gold_c(img, "本当のあなたに出会う", SW / 2, 740, f(L.SERIF, 76)); d = ImageDraw.Draw(img)
     rule(d, SW / 2, 880, 220)
     y = 930
-    for ln in ["プロフィールの2つ目の固定投稿で、", "あなたのルナの性格と特徴を。", "", "1〜28のルナ（20はありません）、", "ひとりずつ載せています。"]:
+    for ln in ["プロフィールの2つ目の固定投稿で、", "あなたのルナの性格と特徴を", "見てみてくださいね。"]:
         if ln: ctext(d, ln, SW / 2, y, f(L.SERIFM, 44), INK)
         y += 76
     L.gold_pill(img, (SW / 2 - 360, 1560, SW / 2 + 360, 1670), "固定投稿を見る ▶", f(L.SANSB, 40))
-    if url: ctext(ImageDraw.Draw(img), url, SW / 2, 1712, f(L.SERIFM, 30), SOFT)
     return img
 
 def hl_story_table(url=None):
     """27のルナ：早見表（白）"""
-    img = paper(seed=11); img = moon(img, 200, SW - 200, 230, 0.95); frame(img)
+    img = constellations(paper(seed=11), [(1, 100, 1700, 1.4, 0.8), (3, 700, 1690, 1.3, 0.8)]); img = moon(img, 200, SW - 200, 230, 0.95); frame(img)
     L.gold_text(img, (120, 190), "27のルナ 早見表", f(L.SERIF, 84), shadow=(150, 118, 60)); d = ImageDraw.Draw(img)
     cols, cw, ch, x0, y0 = 3, 296, 118, 120, 380
     for i, n in enumerate(ORDER):
@@ -148,7 +178,6 @@ def hl_story_table(url=None):
         d.text((x + 70, y + 30), NAMES[str(n)], font=f(L.SERIFM, 38), fill=INK)
         d.line([(x, y + ch - 10), (x + cw - 30, y + ch - 10)], fill=LINE, width=1)
     L.gold_pill(img, (SW / 2 - 360, 1560, SW / 2 + 360, 1670), "自分のルナを調べる ▶", f(L.SANSB, 40))
-    if url: ctext(ImageDraw.Draw(img), url, SW / 2, 1712, f(L.SERIFM, 30), SOFT)
     return img
 
 LINKS = {
@@ -162,9 +191,7 @@ LINKS = {
 }
 
 HIGHLIGHTS = [
-    ("01", "ルナ28とは", [("月の位置で決まる27のルナ", ["生まれた日の月の位置から、あなたのルナが決まります。", "全部で27種類あります。"], "自分のルナを調べる ▶"),
-                         ("2007年から、毎日", ["1200年以上前の経典をもとに、", "毎日の運勢・相性・月運・年運を", "届けています。"], None)]),
-    ("02", "無料で調べる", [("調べ方は、これだけ", ["① プロフィールのリンクを開く", "② 生年月日を選ぶ", "③ 番号と性格が出る"], "30秒・登録不要 ▶")]),
+    ("01", "ルナ28とは", [("月の運行で決まるあなたの運勢", ["生まれた日の月の位置から、あなたのルナが決まります。", "全部で27種類あります。"], "自分のルナを調べる ▶")]),
     ("03", "27のルナ", "table"),
     ("04", "相性", [("ふたりのルナ番号でわかる相性", ["27×27＝729通り。", "恋人でも、友だちでも、職場の人でも。"], "まず自分のルナを調べる ▶")]),
     ("05", "会員になる", [("会員になると届くもの", ["毎日の運勢がメールで届く", "今月・今年の運勢、相性診断", "吉凶カレンダー", "宿命・才能・恋愛・金運・健康"], "月550円から ▶")]),

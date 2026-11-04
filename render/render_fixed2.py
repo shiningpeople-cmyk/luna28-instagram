@@ -22,8 +22,19 @@ NAMES = json.load(open(os.path.join(ROOT, "content", "luna_names.json"), encodin
 ORDER = [n for n in range(1, 29) if n != 20]
 
 # ---------------------------------------------------------------- 基本部品
-def paper(seed=4, horizon=0.80):
-    return V.dawn_sky(W, H, horizon=horizon, seed=seed)
+ZOD_SPOTS = [(5, 80, 66, 1.35, 0.55), (10, 790, 390, 1.25, 0.5), (3, 90, 1130, 1.2, 0.5)]
+def zodiac_layer(n, color=(255, 240, 210), alpha=0.5, scale=1.3):
+    """ユーザー提供の星座線画（content/zodiac_NN.png）を薄い生成り色で"""
+    m = Image.open(os.path.join(ROOT, "content", f"zodiac_{n:02d}.png")).convert("L")
+    m = m.resize((max(1, int(m.width * scale)), max(1, int(m.height * scale))), Image.LANCZOS)
+    lay = Image.new("RGBA", m.size, color + (255,)); lay.putalpha(m.point(lambda a: int(a * alpha)))
+    return lay
+
+def paper(seed=4, horizon=0.80, spots=None):
+    img = V.dawn_sky(W, H, horizon=horizon, seed=seed).convert("RGBA")
+    for n, x, y, sc, al in (ZOD_SPOTS if spots is None else spots):
+        img.alpha_composite(zodiac_layer(n, alpha=al, scale=sc), (int(x), int(y)))
+    return img.convert("RGB")
 
 def frame(img, inset=48):
     ImageDraw.Draw(img).rectangle([inset, inset, W - inset, H - inset], outline=LINE, width=2)
