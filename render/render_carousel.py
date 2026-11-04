@@ -25,7 +25,7 @@ GOLD, GOLD_L = L.GOLD, L.GOLD_D   # 見出し金／小見出しは濃い金
 PAPER = (247, 242, 232)
 M = 96                      # 左右マージン
 
-def bg(stars=0.0, seed=4):
+def bg(stars=0.0, seed=4, spots=None):
     """和紙の質感（細かいむら）"""
     rng = np.random.default_rng(seed)
     n = rng.normal(0, 1, (H // 4, W // 4)).astype(np.float32)
@@ -34,10 +34,12 @@ def bg(stars=0.0, seed=4):
     for i in range(3): arr[..., i] = PAPER[i] + (n - 128) * 0.10
     t = np.linspace(0, 1, H, dtype=np.float32)[:, None]; arr[..., 0] += t * 4; arr[..., 2] -= t * 6
     img = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
-    return constellations(img, ZOD_SPOTS)
+    return constellations(img, ZOD_SPOTS if spots is None else spots)
 
 ZOD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "content")
-ZOD_SPOTS = [(5, 70, 1120, 1.25, 0.7), (3, 760, 1150, 1.2, 0.7)]   # 下の空きに2つ（本文の邪魔をしない）
+ZOD_SPOTS = [(5, 60, 110, 1.4, 0.75), (1, 80, 1190, 1.0, 0.7), (3, 820, 1170, 0.9, 0.7)]          # 左上＋下の両脇
+ZOD_COVER = [(5, 60, 120, 1.4, 0.75), (10, 790, 150, 1.3, 0.7), (1, 80, 1190, 1.0, 0.7), (3, 820, 1170, 0.9, 0.7)]
+ZOD_CTA = [(5, 60, 110, 1.4, 0.75), (10, 790, 120, 1.3, 0.7), (12, 60, 1120, 1.3, 0.7), (3, 800, 1160, 1.1, 0.7)]
 def zodiac_layer(n, color=(196, 160, 80), alpha=0.7, scale=1.3):
     """星座線画（content/zodiac_NN.png）を薄い金で"""
     pth = os.path.join(ZOD_DIR, f"zodiac_{n:02d}.png")
@@ -82,7 +84,7 @@ def rule(d, x0, x1, y, col=GOLD):
     L.diamond(d, (x0 + x1) / 2, y, 7, col)
 
 def header(d, spec):
-    d.text((M, 92), f"27のルナ　｜　{spec['no']}のルナ　{spec['name']}", font=f(L.SERIFM, 28), fill=GOLD_L)
+    ctext(d, f"27のルナ　｜　{spec['no']}のルナ　{spec['name']}", W / 2, 92, f(L.SERIFM, 28), GOLD_L)
 
 CHARS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "content", "chars")
 def medallion(img, n, cx, cy, dia):
@@ -105,57 +107,63 @@ def footer(img, n, total):
         d.ellipse([cx - 4, 1288 - 4, cx + 4, 1288 + 4], fill=GOLD if i == n else (222, 206, 160))
 
 def page_cover(spec, total):
-    img = bg(); hairline_frame(img)
-    if os.path.exists(os.path.join(CHARS, f"{int(spec['no']):02d}_med.png")):
-        img = moon_at(img, 150, W - 190, 190, 0.9); img = medallion(img, spec["no"], W / 2, 350, 480)
+    img = bg(spots=ZOD_COVER); hairline_frame(img)
+    has_char = os.path.exists(os.path.join(CHARS, f"{int(spec['no']):02d}_med.png"))
+    if has_char:
+        img = medallion(img, spec["no"], W / 2, 400, 600)
     else:
-        img = moon_at(img, 520, W / 2, 330)
+        img = moon_at(img, 520, W / 2, 400)
     d = ImageDraw.Draw(img)
     ctext(d, "27 の ル ナ", W / 2, 92, f(L.SERIFM, 28), GOLD_L)
-    num = str(spec["no"]); fn = f(L.SERIF, 220 if len(num) == 1 else 190)
-    bw = d.textbbox((0, 0), num, font=fn)[2]
-    gold_c(img, num, W / 2 - 40, 600, fn); d = ImageDraw.Draw(img)
-    d.text((W / 2 - 40 + bw / 2 + 18, 600 + fn.size * 0.72), "のルナ", font=f(L.SERIFM, 44), fill=CREAM)
-    ctext(d, f"『{spec['name']}』", W / 2, 880, f(L.SERIFM, 60), GOLD_L)
-    rule(d, W / 2 - 200, W / 2 + 200, 985)
+    num = str(spec["no"]); fn = f(L.SERIF, 190 if len(num) == 1 else 165); fs = f(L.SERIFM, 44)
+    bw = d.textbbox((0, 0), num, font=fn)[2]; sw = d.textbbox((0, 0), "のルナ", font=fs)[2]
+    x0 = W / 2 - (bw + 18 + sw) / 2
+    gold_c(img, num, x0 + bw / 2, 720, fn); d = ImageDraw.Draw(img)
+    d.text((x0 + bw + 18, 720 + fn.size * 0.72), "のルナ", font=fs, fill=CREAM)
+    ctext(d, f"『{spec['name']}』", W / 2, 950, f(L.SERIFM, 60), GOLD_L)
+    rule(d, W / 2 - 200, W / 2 + 200, 1055)
     for i, ln in enumerate(V.wrap(spec["catch"], 22)):
-        ctext(d, ln, W / 2, 1020 + i * 52, f(L.SERIFM, 34), CREAM)
+        ctext(d, ln, W / 2, 1085 + i * 52, f(L.SERIFM, 34), CREAM)
     footer(img, 0, total); return img
+
+def title_block(img, title):
+    """見出し（中央）＋飾り罫"""
+    gold_c(img, title, W / 2, 190, f(L.SERIF, 100)); d = ImageDraw.Draw(img)
+    rule(d, W / 2 - 220, W / 2 + 220, 335)
 
 def page_text(spec, page, n, total):
     img = bg(); img = moon_at(img, 300, W - 190, 190, alpha=0.55); hairline_frame(img)
     d = ImageDraw.Draw(img); header(d, spec)
-    L.gold_text(img, (M, 190), page["title"], f(L.SERIF, 100)); d = ImageDraw.Draw(img)
-    d.line([(M, 330), (W - M, 330)], fill=GOLD, width=1)
-    y = 390
+    title_block(img, page["title"]); d = ImageDraw.Draw(img)
+    y = 400
     for ln in page["lines"]:
         for sub in V.wrap(ln, 21):
-            d.text((M, y), sub, font=f(L.SERIFM, 42), fill=CREAM); y += 70
+            ctext(d, sub, W / 2, y, f(L.SERIFM, 42), CREAM); y += 70
         y += 34
     footer(img, n, total); return img
 
 def page_match(spec, page, n, total):
     img = bg(); img = moon_at(img, 300, W - 190, 190, alpha=0.55); hairline_frame(img)
     d = ImageDraw.Draw(img); header(d, spec)
-    L.gold_text(img, (M, 190), "相性", f(L.SERIF, 100)); d = ImageDraw.Draw(img)
-    d.line([(M, 330), (W - M, 330)], fill=GOLD, width=1)
+    title_block(img, "相性"); d = ImageDraw.Draw(img)
     def block(y, title, nums, col):
-        d.text((M, y), title, font=f(L.SERIFM, 36), fill=col)
-        x = M
+        ctext(d, title, W / 2, y, f(L.SERIFM, 36), col)
+        k = len(nums); sw = d.textbbox((0, 0), "のルナ", font=f(L.SERIFM, 32))[2]
+        tot = k * 180 + (k - 1) * 30 + 14 + sw; x = W / 2 - tot / 2
         for nm in nums:
             d.rounded_rectangle([x, y + 70, x + 180, y + 200], radius=18, outline=GOLD, width=2)
             gold_c(img, str(nm), x + 90, y + 82, f(L.SERIF, 82)); x += 210
-        ImageDraw.Draw(img).text((x + 6, y + 140), "のルナ", font=f(L.SERIFM, 32), fill=CREAM)
-    block(390, "理想の異性　1位", page.get("good", []), GOLD_L)
-    block(680, "避けたい異性　1位", page.get("care", []), SOFT)
+        ImageDraw.Draw(img).text((x - 30 + 14, y + 140), "のルナ", font=f(L.SERIFM, 32), fill=CREAM)
+    block(400, "理想の異性　1位", page.get("good", []), GOLD_L)
+    block(690, "避けたい異性　1位", page.get("care", []), SOFT)
     d = ImageDraw.Draw(img)
     lines = ([page["note"]] if page.get("note") else []) + ["2位以下と、ふたりの番号での相性診断は会員ページで。"]
     for i, ln in enumerate(lines):
-        d.text((M, 960 + i * 56), ln, font=f(L.SERIFM, 30), fill=SOFT)
+        ctext(d, ln, W / 2, 970 + i * 56, f(L.SERIFM, 30), SOFT)
     footer(img, n, total); return img
 
 def page_cta(spec, n, total):
-    img = bg(); img = moon_at(img, 640, W / 2, 360); hairline_frame(img)
+    img = bg(spots=ZOD_CTA); img = moon_at(img, 640, W / 2, 360); hairline_frame(img)
     d = ImageDraw.Draw(img)
     ctext(d, "生年月日だけで決まる", W / 2, 720, f(L.SERIFM, 44), CREAM)
     gold_c(img, spec.get("cta", "あなたのルナは何番？"), W / 2, 785, f(L.SERIF, 88)); d = ImageDraw.Draw(img)

@@ -52,6 +52,24 @@ def moon(img, size, cx, cy, alpha=1.0):
     if alpha < 1: mo.putalpha(mo.split()[3].point(lambda a: int(a * alpha)))
     base.alpha_composite(mo, (int(cx - size / 2), int(cy - size / 2))); return base.convert("RGB")
 
+def bright_moon(img, dia, cx, cy, crescent=False, bite=(0.40, -0.28), inner=0.94):
+    """明るい月色の円盤（L.moon の中心円盤だけ使う）。crescent=True で右上が欠けた三日月"""
+    size = int(dia / 0.48); mo = L.moon(size); r = size * 0.24; c = size / 2
+    m = Image.new("L", mo.size, 0); md = ImageDraw.Draw(m)
+    md.ellipse([c - r, c - r, c + r, c + r], fill=255)
+    if crescent:
+        bx, by, br = c + bite[0] * 2 * r, c + bite[1] * 2 * r, r * inner
+        md.ellipse([bx - br, by - br, bx + br, by + br], fill=0)
+    m = m.filter(ImageFilter.GaussianBlur(1.2))
+    mo.putalpha(Image.fromarray((np.asarray(mo.split()[3], np.float32) * np.asarray(m, np.float32) / 255).astype(np.uint8)))
+    ring = Image.new("RGBA", mo.size, (0, 0, 0, 0)); ImageDraw.Draw(ring).ellipse([c - r - 3, c - r - 3, c + r + 3, c + r + 3], outline=(212, 172, 92, 200), width=3)
+    if crescent: ring.putalpha(Image.fromarray((np.asarray(ring.split()[3], np.float32) * np.asarray(m.filter(ImageFilter.MaxFilter(9)), np.float32) / 255).astype(np.uint8)))
+    glow = Image.new("RGBA", img.size, (236, 206, 140, 0)); gd = ImageDraw.Draw(glow)
+    gd.ellipse([cx - r * 1.35, cy - r * 1.35, cx + r * 1.35, cy + r * 1.35], fill=(236, 206, 140, 90))
+    base = Image.alpha_composite(img.convert("RGBA"), glow.filter(ImageFilter.GaussianBlur(r * 0.25)))
+    base.alpha_composite(ring, (int(cx - c), int(cy - c))); base.alpha_composite(mo, (int(cx - c), int(cy - c)))
+    return base.convert("RGB")
+
 def ctext(d, s, cx, y, font, fill):
     b = d.textbbox((0, 0), s, font=font); d.text((cx - (b[2] - b[0]) / 2, y), s, font=font, fill=fill)
 
@@ -99,8 +117,17 @@ def hl_cover(label):
     cut = Image.new("L", em.size, 0); r = 522
     ImageDraw.Draw(cut).ellipse([em.width / 2 - r, em.height / 2 - r, em.width / 2 + r, em.height / 2 + r], fill=255)
     cut = cut.filter(ImageFilter.GaussianBlur(6))
+    # 元の平らな太陽・月の円盤は消す（下で明るい月色に描き直す）
+    sc0 = em.width / 460.0; cd = ImageDraw.Draw(cut)
+    for (ex, ey, er) in [(226.5, 89, 50), (229.5, 302, 48)]:
+        cd.ellipse([ex * sc0 - er * sc0, ey * sc0 - er * sc0, ex * sc0 + er * sc0, ey * sc0 + er * sc0], fill=0)
     em.putalpha(Image.fromarray((np.asarray(em.split()[3], np.float32) * np.asarray(cut, np.float32) / 255).astype(np.uint8)))
     base = img.convert("RGBA"); base.alpha_composite(em, (int(cx - em.width / 2), int(cy - em.height / 2))); img = base.convert("RGB")
+    # 満月と三日月は明るい月色（ストーリーズと同じ月の質感）で上描き
+    sc = em.width / 460.0; ox, oy = cx - em.width / 2, cy - em.height / 2
+    sun_c = (ox + 226.5 * sc, oy + 89 * sc); mo_c = (ox + 229.5 * sc, oy + 302 * sc)
+    img = bright_moon(img, int(2 * 46 * sc), sun_c[0], sun_c[1])
+    img = bright_moon(img, int(2 * 42 * sc), mo_c[0], mo_c[1], crescent=True)
     d = ImageDraw.Draw(img)
     fs = 96 if len(label) <= 4 else (84 if len(label) <= 5 else 68)
     ctext(d, label, cx, cy - fs * 0.55, f(L.SERIF, fs), INK)
