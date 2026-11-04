@@ -1,0 +1,35 @@
+name: LUNA28 Instagram 自動投稿
+on:
+  schedule:
+    - cron: "40 21 * * *"   # 06:40 JST（朝7:00の投稿）
+    - cron: "40 2 * * *"    # 11:40 JST（昼12:00の投稿）
+    - cron: "40 10 * * *"   # 19:40 JST（夜20:00の投稿）
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "1 なら生成だけして投稿しない"
+        default: "0"
+permissions:
+  contents: write
+concurrency: luna28-post
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 1 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: フォント・ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-cjk fonts-noto-cjk-extra ffmpeg
+      - run: pip install -q -r requirements.txt
+      - name: 投稿
+        env:
+          GOOGLE_SA_JSON: ${{ secrets.GOOGLE_SA_JSON }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          MEDIA_BASE_URL: ${{ vars.MEDIA_BASE_URL }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          TZ: Asia/Tokyo
+        run: python run.py
