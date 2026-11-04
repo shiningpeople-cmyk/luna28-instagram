@@ -76,8 +76,8 @@ def git(args, cwd, check=True):
     return p
 
 def publish_media(files, remote_url=None):
-    """media/ 以下の新しいファイルを、履歴を持たない公開ブランチ media に force push（古い日付のものは消す）"""
-    if DRY: return
+    """media/ 以下の新しいファイルを、履歴を持たない公開ブランチ media に force push（古い日付のものは消す）
+       DRY_RUN でも公開する（プレビューを見られるようにする。Instagram への投稿だけが止まる）"""
     if remote_url is None:
         repo = os.environ.get("GITHUB_REPOSITORY"); token = os.environ.get("GITHUB_TOKEN")
         if not (repo and token): raise RuntimeError("GITHUB_REPOSITORY / GITHUB_TOKEN がありません（Actions 以外から実行？）")
