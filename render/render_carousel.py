@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-カルーセル（27のルナ図鑑）: 1080x1350 JPEG を6枚書き出す。上品・余白多め・金の細線。
+カルーセル（27のルナ）: 1080x1350 JPEG を6枚書き出す。上品・余白多め・金の細線。
 使い方:
   python3 render_carousel.py --json content/zukan_luna01.json --out out/carousel_luna01
 JSON:
@@ -63,7 +63,7 @@ def rule(d, x0, x1, y, col=GOLD):
     L.diamond(d, (x0 + x1) / 2, y, 7, col)
 
 def header(d, spec):
-    d.text((M, 92), f"27のルナ図鑑　｜　{spec['no']}のルナ　{spec['name']}", font=f(L.SERIFM, 28), fill=GOLD_L)
+    d.text((M, 92), f"27のルナ　｜　{spec['no']}のルナ　{spec['name']}", font=f(L.SERIFM, 28), fill=GOLD_L)
 
 CHARS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "content", "chars")
 def medallion(img, n, cx, cy, dia):
@@ -92,7 +92,7 @@ def page_cover(spec, total):
     else:
         img = moon_at(img, 520, W / 2, 330)
     d = ImageDraw.Draw(img)
-    ctext(d, "27 の ル ナ 図 鑑", W / 2, 92, f(L.SERIFM, 28), GOLD_L)
+    ctext(d, "27 の ル ナ", W / 2, 92, f(L.SERIFM, 28), GOLD_L)
     num = str(spec["no"]); fn = f(L.SERIF, 220 if len(num) == 1 else 190)
     bw = d.textbbox((0, 0), num, font=fn)[2]
     gold_c(img, num, W / 2 - 40, 600, fn); d = ImageDraw.Draw(img)
@@ -180,7 +180,7 @@ def page_cover_photo(spec, total):
     img = Image.composite(paper, img, mask)
     d = ImageDraw.Draw(img)
     d.rectangle([48, 48, W - 48, H - 48], outline=(255, 250, 240), width=2)
-    ctext(d, "27 の ル ナ 図 鑑", W / 2, 92, f(L.SERIFM, 28), (255, 250, 240))
+    ctext(d, "27 の ル ナ", W / 2, 92, f(L.SERIFM, 28), (255, 250, 240))
     num = str(spec["no"]); fn = f(L.SERIF, 200); bw = d.textbbox((0, 0), num, font=fn)[2]
     gold_c(img, num, W / 2 - 40, 840, fn); d = ImageDraw.Draw(img)
     d.text((W / 2 - 40 + bw / 2 + 18, 840 + fn.size * 0.72), "のルナ", font=f(L.SERIFM, 44), fill=CREAM)
