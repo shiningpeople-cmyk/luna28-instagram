@@ -22,8 +22,7 @@ SH = (70, 40, 100)
 SOFT = (255, 244, 224)
 
 def brand(lay):
-    d = ImageDraw.Draw(lay)
-    V.ctext(d, "LUNA28　宿曜占星術", W / 2, 150, f(L.SERIFM, 36), SOFT)
+    return  # ブランド表記は入れない（固定投稿と統一）
 
 def scene_hook(hook):
     s = V.Scene(4.0, 520, W / 2, 430)
@@ -84,7 +83,7 @@ def scene_cta(cta):
     s.add(V.text_layer(big), 0.2, 0.7)
     s.add(V.text_layer(lambda l: [V.ctext(ImageDraw.Draw(l), ln, W / 2, 1000 + i * 80, f(L.SERIFM, 46), WHITE, shadow=SH) for i, ln in enumerate(["生年月日だけで、30秒", "登録不要・無料"])]), 0.8, 0.7)
     s.add(V.pill_layer((W / 2 - 360, 1210, W / 2 + 360, 1330), "プロフィールのリンクから ▶", f(L.SANSB, 44)), 1.3, 0.7, 30)
-    s.add(V.text_layer(lambda l: [V.ctext(ImageDraw.Draw(l), "毎朝7時、今日のラッキールナをストーリーズで", W / 2, 1420, f(L.SERIFM, 32), SOFT), V.ctext(ImageDraw.Draw(l), "@luna28.japan", W / 2, 1755, f(L.SERIFM, 30), SOFT)]), 1.9, 0.8, 10)
+    s.add(V.text_layer(lambda l: [V.ctext(ImageDraw.Draw(l), "毎朝7時、今日のラッキールナをストーリーズで", W / 2, 1420, f(L.SERIFM, 32), SOFT)]), 1.9, 0.8, 10)
     return s
 
 def render(spec, out_mp4, with_audio=True):
