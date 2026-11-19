@@ -73,7 +73,18 @@ def _shadowed(lay, blur=10, alpha=0.75, col=SHADOW, dy=4):
     return out
 
 
+def fit_size(text, font_path, size, maxw=900):
+    """枠からはみ出さない大きさまで文字を小さくする"""
+    d = ImageDraw.Draw(Image.new("RGB", (8, 8)))
+    while size > 30:
+        b = d.textbbox((0, 0), text, font=f(font_path, size))
+        if b[2] - b[0] <= maxw: break
+        size -= 2
+    return size
+
+
 def white_text(text, cy, size, font=None, cx=W / 2, fill=CREAM, tracking=0):
+    size = fit_size(text, font or L.SERIF, size, 900 if abs(cx - W / 2) < 1 else 440)
     lay = _blank(); d = ImageDraw.Draw(lay); ft = f(font or L.SERIF, size)
     b = d.textbbox((0, 0), text, font=ft)
     d.text((cx - (b[2] - b[0]) / 2 - b[0], cy - (b[3] - b[1]) / 2 - b[1]), text, font=ft, fill=fill)
@@ -81,6 +92,7 @@ def white_text(text, cy, size, font=None, cx=W / 2, fill=CREAM, tracking=0):
 
 
 def gold_text(text, cy, size, cx=W / 2, font=None):
+    size = fit_size(text, font or L.SERIF, size, 900 if abs(cx - W / 2) < 1 else 440)
     ft = f(font or L.SERIF, size)
     d = ImageDraw.Draw(Image.new("RGB", (8, 8))); b = d.textbbox((0, 0), text, font=ft)
     x = int(cx - (b[2] - b[0]) / 2 - b[0]); y = int(cy - (b[3] - b[1]) / 2 - b[1])
