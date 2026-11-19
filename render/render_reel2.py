@@ -182,8 +182,8 @@ for _k, _v in FULLMOON_2027.items():
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--key", required=True); ap.add_argument("--out"); ap.add_argument("--audio"); ap.add_argument("--preview"); ap.add_argument("--times", default="")
-    a = ap.parse_args(); r = REELS[a.key]()
+    ap.add_argument("--key", required=True); ap.add_argument("--out"); ap.add_argument("--audio"); ap.add_argument("--preview"); ap.add_argument("--times", default=""); ap.add_argument("--theme", default="dawn")
+    a = ap.parse_args(); R.set_theme(a.theme); r = REELS[a.key]()
     if a.preview:
         os.makedirs(a.preview, exist_ok=True)
         ts = [float(x) for x in a.times.split(",")] if a.times else [2.9, 6.9, 11.8, 15.5, r.T - 1.0]
